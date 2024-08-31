@@ -34,6 +34,7 @@ type TCPTransport struct {
 	TCPTransportOps
 	listenAddr string
 	listener   net.Listener
+	rpcch      chan RPC
 
 	mu    sync.RWMutex
 	peers map[net.Addr]Peer
@@ -42,7 +43,14 @@ type TCPTransport struct {
 func NewTcpTransport(opts TCPTransportOps) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOps: opts,
+		rpcch:           make(chan RPC),
 	}
+}
+
+// implements the transport interface, which will return a read only channel
+// for reading the incoming messages recevied from another peer.
+func (t *TCPTransport) Consume() <-chan RPC {
+	return t.rpcch
 }
 
 func (t *TCPTransport) ListenAndAccept() error {
@@ -67,9 +75,6 @@ func (t *TCPTransport) startAcceptLoop() error {
 	}
 }
 
-type Temp struct {
-}
-
 func (t *TCPTransport) handleConn(conn net.Conn) {
 	peer := NewTCPPeer(conn, true)
 
@@ -80,12 +85,14 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 	}
 
 	//read loop
-	msg := &Message{}
+	rpc := RPC{}
 	for {
-		if err := t.Decoder.Decode(conn, msg); err != nil {
+		if err := t.Decoder.Decode(conn, &rpc); err != nil {
 			fmt.Printf("TCP error: %s\n", err)
 			continue
 		}
-		fmt.Printf("TCP msg: %v\n", msg)
+		rpc.from = conn.RemoteAddr()
+		t.rpcch <- rpc
+		fmt.Printf("TCP msg: %v\n", rpc)
 	}
 }
