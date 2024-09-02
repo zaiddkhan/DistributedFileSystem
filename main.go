@@ -21,12 +21,11 @@ func main() {
 	}
 	tr := p2p.NewTcpTransport(tcpOpts)
 
-	go func() {
-		for {
-			msg := <-tr.Consume()
-			fmt.Printf("$+v\n", msg)
-		}
-	}()
+	//go func() {
+	//	for {
+	//		msg := <-tr.Consume()
+	//	}
+	//}()
 	if err := tr.ListenAndAccept(); err != nil {
 		fmt.Println(err)
 	}
