@@ -3,6 +3,8 @@ package main
 import (
 	"DistributedFileSystems/p2p"
 	"fmt"
+	"log"
+	"time"
 )
 
 func OnPeer(peer p2p.Peer) error {
@@ -13,24 +15,26 @@ func OnPeer(peer p2p.Peer) error {
 }
 
 func main() {
-	tcpOpts := p2p.TCPTransportOps{
+	tcpTransportOpts := p2p.TCPTransportOps{
 		ListenAddr:    ":3000",
 		HandshakeFunc: p2p.NOPHandshakeFunc,
 		Decoder:       p2p.DefaultDecoder{},
-		OnPeer:        OnPeer,
 	}
-	tr := p2p.NewTcpTransport(tcpOpts)
-
-	//go func() {
-	//	for {
-	//		msg := <-tr.Consume()
-	//	}
-	//}()
-	if err := tr.ListenAndAccept(); err != nil {
-		fmt.Println(err)
+	tcpTransport := p2p.NewTcpTransport(tcpTransportOpts)
+	fileServerOpts := FileServerOpts{
+		ListenAddr:        ":3000",
+		StorageRoot:       "3000_files",
+		PathTransformFunc: CASPathTransformFunc,
+		Transport:         tcpTransport,
 	}
-	fmt.Println("listen and accept ok")
+	s := NewFileServer(fileServerOpts)
 
-	select {}
+	go func() {
+		time.Sleep(time.Second * 3)
+		s.Stop()
+	}()
 
+	if err := s.Start(); err != nil {
+		log.Fatal(err)
+	}
 }

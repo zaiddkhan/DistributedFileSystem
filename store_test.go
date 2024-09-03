@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"io/ioutil"
 	"testing"
 )
 
@@ -19,46 +21,51 @@ func TestPathTransformFunc(t *testing.T) {
 	}
 }
 
-func TestDelete(t *testing.T) {
-	opts := StoreOpts{
-		PathTransformFunc: CASPathTransformFunc,
-	}
+func TestStore(t *testing.T) {
 
-	s := NewStore(opts)
-	key := "newnew"
+	s := newStore()
+	defer teardown(t, s)
 
-	data := []byte("byee")
-	if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
-		t.Error(err)
-	}
-	if err := s.Delete(key); err != nil {
-		t.Error(err)
+	for i := 0; i < 10; i++ {
+
+		key := fmt.Sprintf("foo_%d", i)
+
+		data := []byte("some jpeg bytes")
+		if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
+			t.Error(err)
+		}
+		r, err := s.Read(key)
+		if err != nil {
+			t.Error(err)
+		}
+		b, _ := ioutil.ReadAll(r)
+		if string(b) != string(data) {
+			t.Error("data error")
+		}
+
+		if ok := s.Has(key); !ok {
+			t.Error("key", key, "not found")
+		}
+
+		err = s.Delete(key)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if ok := s.Has(key); ok {
+			t.Error("Expected to not find the key")
+		}
 	}
 }
 
-func TestStore(t *testing.T) {
+func newStore() *Store {
 	opts := StoreOpts{
 		PathTransformFunc: CASPathTransformFunc,
 	}
+	return NewStore(opts)
+}
 
-	s := NewStore(opts)
-	key := "specials"
-
-	data := []byte("hello world")
-	if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
+func teardown(t *testing.T, store *Store) {
+	if err := store.Clear(); err != nil {
 		t.Error(err)
 	}
-	//r, err := s.Read(key)
-	//if err != nil {
-	//	t.Error(err)
-	//}
-	//b, _ := ioutil.ReadAll(r)
-	//if string(b) != string(data) {
-	//	t.Error("data error")
-	//}
-	//
-	//err = s.Delete(key)
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
 }
