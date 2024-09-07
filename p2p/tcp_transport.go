@@ -11,7 +11,7 @@ import (
 
 type TCPPeer struct {
 	//conn is the underlying connection of the peer
-	conn net.Conn
+	net.Conn
 
 	//if we dial and retrieve a connection => outbound == true
 	//if we accept and retrieve a connection => outbound == false
@@ -20,15 +20,9 @@ type TCPPeer struct {
 
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
-		conn:     conn,
+		Conn:     conn,
 		outbound: outbound,
 	}
-}
-
-// Close implements the Peer interface.
-
-func (p *TCPPeer) Close() error {
-	return p.conn.Close()
 }
 
 type TCPTransportOps struct {
@@ -72,6 +66,11 @@ func (t *TCPTransport) ListenAndAccept() error {
 
 func (t *TCPTransport) Close() error {
 	return t.listener.Close()
+}
+
+func (p *TCPPeer) Send(b []byte) error {
+	_, err := p.Conn.Write(b)
+	return err
 }
 
 // Dial implements the Transport interface.

@@ -2,8 +2,10 @@ package main
 
 import (
 	"DistributedFileSystems/p2p"
+	"bytes"
 	"fmt"
 	"log"
+	"time"
 )
 
 func OnPeer(peer p2p.Peer) error {
@@ -17,19 +19,20 @@ func makeAServer(listenAddr string, root string, nodes ...string) *FileServer {
 	tcpTransportOpts := p2p.TCPTransportOps{
 		ListenAddr:    listenAddr,
 		HandshakeFunc: p2p.NOPHandshakeFunc,
-		Decoder:       p2p.DefaultDecoder{},
 	}
 	tcpTransport := p2p.NewTcpTransport(
 		tcpTransportOpts,
 	)
 
-	fileServerOtpts := FileServerOpts{
+	fileServerOpts := FileServerOpts{
 		StorageRoot:       listenAddr + "3000_network",
 		PathTransformFunc: CASPathTransformFunc,
 		Transport:         tcpTransport,
 		BootstrapNodes:    nodes,
 	}
-	return NewFileServer(fileServerOtpts)
+	s := NewFileServer(fileServerOpts)
+	tcpTransport.OnPeer = s.OnPeer
+	return s
 }
 
 func main() {
@@ -38,5 +41,10 @@ func main() {
 	go func() {
 		log.Fatal(s1.Start())
 	}()
-	s2.Start()
+	time.Sleep(2 * time.Second)
+	go s2.Start()
+	time.Sleep(2 * time.Second)
+	data := bytes.NewReader([]byte("hello world"))
+	s2.StoreData("key", data)
+	select {}
 }
