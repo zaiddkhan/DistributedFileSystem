@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 )
 
 //tcp peer represents the remote node over a TCP established connection
@@ -16,12 +17,14 @@ type TCPPeer struct {
 	//if we dial and retrieve a connection => outbound == true
 	//if we accept and retrieve a connection => outbound == false
 	outbound bool
+	Wg       *sync.WaitGroup
 }
 
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
 		Conn:     conn,
 		outbound: outbound,
+		Wg:       &sync.WaitGroup{},
 	}
 }
 
@@ -131,8 +134,11 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 			fmt.Printf("TCP read error: %s\n", err)
 			return
 		}
-		rpc.from = conn.RemoteAddr()
+		peer.Wg.Add(1)
+		fmt.Println("waitingg till stream is doen")
+		rpc.From = conn.RemoteAddr().String()
 		t.rpcch <- rpc
-		fmt.Printf("TCP msg: %v\n", rpc)
+		peer.Wg.Wait()
+		fmt.Println("waitingg till stream is doen")
 	}
 }
