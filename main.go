@@ -2,9 +2,10 @@ package main
 
 import (
 	"DistributedFileSystems/p2p"
-	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -16,6 +17,7 @@ func OnPeer(peer p2p.Peer) error {
 }
 
 func makeAServer(listenAddr string, root string, nodes ...string) *FileServer {
+	addrs := strings.ReplaceAll(listenAddr, ":", "")
 	tcpTransportOpts := p2p.TCPTransportOps{
 		ListenAddr:    listenAddr,
 		HandshakeFunc: p2p.NOPHandshakeFunc,
@@ -25,7 +27,7 @@ func makeAServer(listenAddr string, root string, nodes ...string) *FileServer {
 	)
 
 	fileServerOpts := FileServerOpts{
-		StorageRoot:       listenAddr + "3000_network",
+		StorageRoot:       addrs + "_network",
 		PathTransformFunc: CASPathTransformFunc,
 		Transport:         tcpTransport,
 		BootstrapNodes:    nodes,
@@ -44,7 +46,17 @@ func main() {
 	time.Sleep(2 * time.Second)
 	go s2.Start()
 	time.Sleep(2 * time.Second)
-	data := bytes.NewReader([]byte("hello world"))
-	s2.StoreData("key", data)
+	r, err := s2.Get("myprivdata")
+	if err != nil {
+		log.Fatal(err)
+	}
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		log.Fatal(err)
+
+	}
+	//data := bytes.NewReader([]byte("big data found"))
+	//s2.StoreData("myprivdata", data)
+	fmt.Println(string(b))
 	select {}
 }
