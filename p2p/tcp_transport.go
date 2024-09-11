@@ -44,8 +44,12 @@ type TCPTransport struct {
 func NewTcpTransport(opts TCPTransportOps) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOps: opts,
-		rpcch:           make(chan RPC),
+		rpcch:           make(chan RPC, 1024),
 	}
+}
+
+func (t *TCPTransport) Addr() string {
+	return t.ListenAddr
 }
 
 // Implements the transport interface, which will return a read only channel
@@ -125,8 +129,9 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 		}
 	}
 	//read loop
-	rpc := RPC{}
+
 	for {
+		rpc := RPC{}
 		err := t.Decoder.Decode(conn, &rpc)
 
 		if err != nil {
@@ -134,11 +139,14 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 			fmt.Printf("TCP read error: %s\n", err)
 			return
 		}
-		peer.Wg.Add(1)
-		fmt.Println("waitingg till stream is doen")
+		if rpc.Stream {
+			peer.Wg.Add(1)
+			fmt.Println("waitinggggg")
+			peer.Wg.Wait()
+			continue
+		}
 		rpc.From = conn.RemoteAddr().String()
 		t.rpcch <- rpc
-		peer.Wg.Wait()
-		fmt.Println("waitingg till stream is doen")
+
 	}
 }
