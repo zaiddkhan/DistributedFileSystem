@@ -47,11 +47,10 @@ func main() {
 	time.Sleep(2 * time.Second)
 	go s2.Start()
 	time.Sleep(2 * time.Second)
-	for i := 0; i < 10; i++ {
-		data := bytes.NewReader([]byte("big data found"))
-		s2.StoreData("myprivdata", data)
-		time.Sleep(time.Millisecond * 5)
-	}
+	data := bytes.NewReader([]byte("big data found"))
+	s2.StoreData("myprivdataj", data)
+	time.Sleep(time.Millisecond * 5)
+
 	r, err := s2.Get("myprivdata")
 	if err != nil {
 		log.Fatal(err)
@@ -61,7 +60,7 @@ func main() {
 		log.Fatal(err)
 
 	}
-
 	fmt.Println(string(b))
+
 	select {}
 }

@@ -85,6 +85,7 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 			return nil, err
 		}
 		fmt.Println("received bytes over the network", n)
+		peer.CloseStream()
 
 	}
 	select {}
@@ -154,6 +155,8 @@ func (s *FileServer) handleMessageGetFile(from string, msg *MessageGetFile) erro
 	if !ok {
 		return fmt.Errorf("cannot read file (%s) from disk", msg.Key)
 	}
+
+	peer.Send([]byte{p2p.IncomingStream})
 	n, err := io.Copy(peer, r)
 	if err != nil {
 		return err
@@ -171,7 +174,7 @@ func (s *FileServer) handleMessageStoreFile(from string, msg MessageStoreFile) e
 	if _, err := s.store.Write(msg.Key, io.LimitReader(peer, msg.Size)); err != nil {
 		return err
 	}
-	peer.(*p2p.TCPPeer).Wg.Done()
+	peer.CloseStream()
 
 	return nil
 }

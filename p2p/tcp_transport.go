@@ -17,14 +17,14 @@ type TCPPeer struct {
 	//if we dial and retrieve a connection => outbound == true
 	//if we accept and retrieve a connection => outbound == false
 	outbound bool
-	Wg       *sync.WaitGroup
+	wg       *sync.WaitGroup
 }
 
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
 		Conn:     conn,
 		outbound: outbound,
-		Wg:       &sync.WaitGroup{},
+		wg:       &sync.WaitGroup{},
 	}
 }
 
@@ -56,6 +56,10 @@ func (t *TCPTransport) Addr() string {
 // for reading the incoming messages recevied from another peer.
 func (t *TCPTransport) Consume() <-chan RPC {
 	return t.rpcch
+}
+
+func (p *TCPPeer) CloseStream() {
+	p.wg.Done()
 }
 
 func (t *TCPTransport) ListenAndAccept() error {
@@ -140,9 +144,9 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 			return
 		}
 		if rpc.Stream {
-			peer.Wg.Add(1)
+			peer.wg.Add(1)
 			fmt.Println("waitinggggg")
-			peer.Wg.Wait()
+			peer.wg.Wait()
 			continue
 		}
 		rpc.From = conn.RemoteAddr().String()
