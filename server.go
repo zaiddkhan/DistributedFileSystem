@@ -3,6 +3,7 @@ package main
 import (
 	"DistributedFileSystems/p2p"
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -67,7 +68,8 @@ func (s *FileServer) broadcast(msg *Message) error {
 
 func (s *FileServer) Get(key string) (io.Reader, error) {
 	if s.store.Has(key) {
-		return s.store.Read(key)
+		_, r, err := s.store.Read(key)
+		return r, err
 	}
 	fmt.Printf("don't have file locally")
 	msg := Message{
@@ -78,18 +80,21 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 	if err := s.broadcast(&msg); err != nil {
 		return nil, err
 	}
+	time.Sleep(time.Millisecond * 3)
 	for _, peer := range s.peers {
-		fileBuffer := new(bytes.Buffer)
-		n, err := io.CopyN(fileBuffer, peer, 10)
-		if err != nil {
+		var fileSize int64
+		binary.Read(peer, binary.LittleEndian, &fileSize)
+		n, err := s.store.Write(key, io.LimitReader(peer, fileSize))
+		if err == nil {
 			return nil, err
 		}
-		fmt.Println("received bytes over the network", n)
+
+		fmt.Println(n)
 		peer.CloseStream()
 
 	}
-	select {}
-	return nil, nil
+	_, r, err := s.store.Read(key)
+	return r, err
 }
 func (s *FileServer) StoreData(key string, r io.Reader) error {
 
@@ -147,7 +152,7 @@ func (s *FileServer) handleMessageGetFile(from string, msg *MessageGetFile) erro
 	if !s.store.Has(msg.Key) {
 		return fmt.Errorf("cannot read file (%s) from disk", msg.Key)
 	}
-	r, err := s.store.Read(msg.Key)
+	size, r, err := s.store.Read(msg.Key)
 	if err != nil {
 		return err
 	}
@@ -156,7 +161,14 @@ func (s *FileServer) handleMessageGetFile(from string, msg *MessageGetFile) erro
 		return fmt.Errorf("cannot read file (%s) from disk", msg.Key)
 	}
 
+	rc, ok := r.(io.ReadCloser)
+	if ok {
+		fmt.Println("closing read closer")
+		defer rc.Close()
+	}
 	peer.Send([]byte{p2p.IncomingStream})
+	var fileSize int64 = size
+	binary.Write(peer, binary.LittleEndian, fileSize)
 	n, err := io.Copy(peer, r)
 	if err != nil {
 		return err
